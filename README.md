@@ -62,6 +62,13 @@ handler. Given a URL it scans every Chrome window for a tab already showing it
 otherwise opens a new tab in the front window — or a new window, if Chrome has
 none open.
 
+It addresses Chrome by process, not by name. Test runners (Selenium,
+Puppeteer, etc.) launch headless Chrome from the same `.app`, and while one is
+running `tell application "Google Chrome"` can resolve to it — every link then
+opens in an invisible browser and the click looks like it did nothing. The
+applet picks the Chrome process with a regular (Dock) activation policy and
+drives it through ScriptingBridge by pid instead.
+
 A click therefore crosses two processes before Chrome sees it. Naively that
 cost ~0.6s with a visible focus flash. Three details bring it to ~0.27s:
 
