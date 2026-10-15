@@ -21,7 +21,7 @@ set -eu
 RUNS=${1:-10}
 FILLER=${2:-50}
 BUNDLE_ID="io.github.gamellis.chrometabfocus"
-TARGET="https://example.com/?finicky-tab-focus-bench"
+TARGET="https://example.com/?chrome-tab-focus-bench"
 
 if ! pgrep -x "Google Chrome" >/dev/null; then
   echo "Start Chrome first: this measures focusing a tab in a running Chrome." >&2

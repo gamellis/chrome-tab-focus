@@ -1,4 +1,4 @@
-# finicky-tab-focus
+# chrome-tab-focus
 
 Every link opened on the Mac goes to the user's Chrome, reusing a tab that
 already shows it instead of opening a duplicate.

@@ -1,4 +1,4 @@
-# finicky-tab-focus
+# chrome-tab-focus
 
 Click a link anywhere on your Mac. If that URL is already open in a Chrome tab,
 that tab gets focused. If it isn't, it opens in a new tab. No duplicate tabs.
