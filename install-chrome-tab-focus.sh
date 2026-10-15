@@ -1,6 +1,6 @@
 #!/bin/sh
 # Build ChromeTabFocus.app from the AppleScript source and register it as an
-# http/https handler so Finicky can hand URLs to it.
+# http/https handler, so it can be the default browser.
 #
 # Safe to re-run: this is also the edit-test loop. After changing the
 # AppleScript you must re-run this, or the old compiled applet keeps handling
@@ -34,22 +34,22 @@ mkdir -p "$HOME/Applications"
 # cold-launching on every click.
 osacompile -s -o "$APP" "$SRC"
 
-# Tab focus and its Chrome adapter, which the applet loads from Resources at
-# first use. Compiled before signing, so the signature covers them.
-for lib in tab-focus chrome-tabs-appleevents; do
+# Tab focus, its Chrome adapter and the carve-outs, which the applet loads from
+# Resources at first use. Compiled before signing, so the signature covers them.
+for lib in tab-focus chrome-tabs-appleevents carve-outs; do
   osacompile -o "$APP/Contents/Resources/$lib.scpt" "$ROOT/$lib.applescript"
 done
 
 plutil -replace CFBundleIdentifier -string "$BUNDLE_ID" "$PLIST"
 plutil -replace CFBundleURLTypes \
   -json '[{"CFBundleURLName":"Web","CFBundleURLSchemes":["http","https","file"]}]' "$PLIST"
-# Local pages arrive as documents, not URLs: Finicky is the default handler for
-# public.html, so `open page.html` reaches Finicky, which hands the file to the
-# default browser — us. Without this claim macOS refuses the handoff with
+# Local pages arrive as documents, not URLs: `open page.html` hands the file to
+# the default handler for public.html. Without this claim macOS refuses with
 # "ChromeTabFocus cannot open files in the 'HTML text' format".
 #
-# Rank Alternate, not Default: this app should never become the app Finder
-# shows for .html files, only a legal destination once Finicky picks it.
+# Rank Alternate, not Default: install.sh makes this the .html handler
+# explicitly, so the rank only matters to someone who never ran it — and they
+# didn't ask for their .html files to change hands.
 plutil -replace CFBundleDocumentTypes \
   -json '[{"CFBundleTypeName":"Web page","CFBundleTypeRole":"Viewer",
            "LSHandlerRank":"Alternate",

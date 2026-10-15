@@ -5,7 +5,6 @@ set -u
 
 BUNDLE_ID="io.github.gamellis.chrometabfocus"
 APP="$HOME/Applications/ChromeTabFocus.app"
-CONFIG="$HOME/.config/finicky/finicky.js"
 fails=0
 
 ok()   { echo "  ok    $1"; }
@@ -29,30 +28,6 @@ if [ -n "$(app_path com.google.Chrome)" ]; then
   ok "Google Chrome installed"
 else
   bad "Google Chrome not found" "Tab reuse is Chrome-specific."
-fi
-
-FINICKY="$(app_path se.johnste.finicky)"
-if [ -z "$FINICKY" ]; then
-  bad "Finicky not found" "brew install --cask finicky"
-else
-  VERSION="$(defaults read "$FINICKY/Contents/Info.plist" \
-    CFBundleShortVersionString 2>/dev/null || echo "?")"
-  case "$VERSION" in
-    4.*) ok "Finicky $VERSION" ;;
-    *)   bad "Finicky $VERSION is not 4.x" \
-             "This config fails silently on older Finicky. brew upgrade --cask finicky" ;;
-  esac
-fi
-
-if [ -e "$HOME/.finicky.js" ]; then
-  bad "$HOME/.finicky.js exists" \
-      "Finicky reads that instead of $CONFIG. Move it aside."
-fi
-
-if [ -e "$CONFIG" ]; then
-  ok "config present"
-else
-  bad "no config at $CONFIG" "Run ./install.sh"
 fi
 
 if [ -d "$APP" ]; then
@@ -81,8 +56,9 @@ if [ -d "$APP" ]; then
   # The applet loads Tab focus and its Chrome adapter at first use. Without
   # them every URL errors inside a background agent, which shows nothing.
   if [ -f "$APP/Contents/Resources/tab-focus.scpt" ] &&
-     [ -f "$APP/Contents/Resources/chrome-tabs-appleevents.scpt" ]; then
-    ok "applet has Tab focus and its Chrome adapter"
+     [ -f "$APP/Contents/Resources/chrome-tabs-appleevents.scpt" ] &&
+     [ -f "$APP/Contents/Resources/carve-outs.scpt" ]; then
+    ok "applet has Tab focus, its Chrome adapter and the carve-outs"
   else
     bad "applet is missing its compiled scripts" "$REBUILD"
   fi
@@ -96,13 +72,40 @@ else
   bad "no applet at $APP" "Run ./install-chrome-tab-focus.sh"
 fi
 
-if defaults read com.apple.LaunchServices/com.apple.launchservices.secure 2>/dev/null |
-  grep -q 'se\.johnste\.finicky'; then
-  ok "Finicky is the default browser"
-else
-  bad "Finicky is not the default browser" \
-      "System Settings > Desktop & Dock > Default web browser > Finicky"
-fi
+# Who LaunchServices actually hands a link and a local page to — the same
+# lookup `open` does, so this can't disagree with what a click does.
+handler_for() {
+  osascript -e 'use framework "AppKit"' -e 'on run argv' \
+    -e 'set ws to current application'"'"'s NSWorkspace'"'"'s sharedWorkspace()' \
+    -e 'if item 1 of argv is "url" then' \
+    -e 'set a to ws'"'"'s URLForApplicationToOpenURL:(current application'"'"'s NSURL'"'"'s URLWithString:"https://example.com")' \
+    -e 'else' \
+    -e 'set a to ws'"'"'s URLForApplicationToOpenURL:(current application'"'"'s NSURL'"'"'s fileURLWithPath:(item 2 of argv))' \
+    -e 'end if' \
+    -e '((current application'"'"'s NSBundle'"'"'s bundleWithURL:a)'"'"'s bundleIdentifier()) as text' \
+    -e 'end run' "$@" 2>/dev/null
+}
+
+case "$(handler_for url)" in
+  "$BUNDLE_ID") ok "ChromeTabFocus is the default browser" ;;
+  se.johnste.finicky)
+    bad "Finicky is the default browser" \
+        "Links still work, through an extra hop. Run ./install.sh to drop it." ;;
+  *) bad "ChromeTabFocus is not the default browser" \
+         "System Settings > Desktop & Dock > Default web browser > ChromeTabFocus" ;;
+esac
+
+PAGE="$(mktemp -d)/verify.html"
+: >"$PAGE"
+case "$(handler_for file "$PAGE")" in
+  "$BUNDLE_ID") ok "local .html pages open through ChromeTabFocus" ;;
+  se.johnste.finicky)
+    bad "local .html pages go to Finicky first" \
+        "They still arrive, through an extra hop. Run ./install.sh to drop it." ;;
+  *) bad "local .html pages bypass ChromeTabFocus" \
+         "Run ./install.sh, or Finder > Get Info on any .html > Open with > ChromeTabFocus > Change All." ;;
+esac
+rm -rf "$(dirname "$PAGE")"
 
 # The automation grant is the one thing that can't be checked without asking:
 # a dry run either returns a tab count or trips the TCC denial.

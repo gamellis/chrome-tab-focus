@@ -4,9 +4,11 @@
 #
 #   ./bench.sh [runs] [filler-tabs]
 #
-# Measures two paths so the Finicky hop can be told apart from the applet:
-#   finicky  `open <url>`, the way every real click arrives
-#   direct   `open -b <applet> <url>`, skipping Finicky
+# Measures two paths, so a router in front of the applet (Finicky, before it
+# was dropped) can be told apart from the applet itself:
+#   default  `open <url>`, through whatever the default browser is, the way
+#            every real click arrives
+#   direct   `open -b <applet> <url>`, straight to the applet
 #
 # And two tab counts: your windows as they are, then with a throwaway window of
 # filler tabs in front, which the applet must scan before reaching the target.
@@ -108,13 +110,13 @@ on run argv
 		set userWins to (count of windows) - 1
 	end tell
 
-	set finickyCmd to "open " & quoted form of target
+	set defaultCmd to "open " & quoted form of target
 	set directCmd to "open -b " & quoted form of bundleId & " " & quoted form of target
 	set out to {}
 	set fillerWin to missing value
 	set end of out to "your windows (" & userWins & " windows, " & userTabs & " tabs), " & runs & " runs"
 	try
-		set end of out to my bench("  finicky", finickyCmd, runs, target, targetWin, missing value)
+		set end of out to my bench("  default", defaultCmd, runs, target, targetWin, missing value)
 		set end of out to my bench("  direct ", directCmd, runs, target, targetWin, missing value)
 
 		if filler > 0 then
@@ -125,7 +127,7 @@ on run argv
 				end repeat
 			end tell
 			set end of out to "+ " & filler & " filler tabs in front"
-			set end of out to my bench("  finicky", finickyCmd, runs, target, targetWin, fillerWin)
+			set end of out to my bench("  default", defaultCmd, runs, target, targetWin, fillerWin)
 			set end of out to my bench("  direct ", directCmd, runs, target, targetWin, fillerWin)
 		end if
 	on error e
