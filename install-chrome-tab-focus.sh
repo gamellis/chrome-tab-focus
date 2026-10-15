@@ -7,7 +7,8 @@
 # URLs and your edit appears to do nothing.
 set -eu
 
-SRC="$(cd "$(dirname "$0")" && pwd)/chrome-tab-focus.applescript"
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+SRC="$ROOT/chrome-tab-focus.applescript"
 APP="$HOME/Applications/ChromeTabFocus.app"
 PLIST="$APP/Contents/Info.plist"
 BUNDLE_ID="io.github.gamellis.chrometabfocus"
@@ -32,6 +33,12 @@ mkdir -p "$HOME/Applications"
 # -s: stay-open applet, so the process stays warm between URLs instead of
 # cold-launching on every click.
 osacompile -s -o "$APP" "$SRC"
+
+# Tab focus and its Chrome adapter, which the applet loads from Resources at
+# first use. Compiled before signing, so the signature covers them.
+for lib in tab-focus chrome-tabs-appleevents; do
+  osacompile -o "$APP/Contents/Resources/$lib.scpt" "$ROOT/$lib.applescript"
+done
 
 plutil -replace CFBundleIdentifier -string "$BUNDLE_ID" "$PLIST"
 plutil -replace CFBundleURLTypes \
