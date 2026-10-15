@@ -1,11 +1,10 @@
 #!/bin/sh
-# Install the whole thing: Finicky, the config, and the ChromeTabFocus applet.
+# Install the whole thing: build the ChromeTabFocus applet and make it the
+# default browser.
 set -eu
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-CONFIG_DIR="$HOME/.config/finicky"
-CONFIG="$CONFIG_DIR/finicky.js"
-BACKUP="$CONFIG.bak"
+BUNDLE_ID="io.github.gamellis.chrometabfocus"
 
 die() { echo "$@" >&2; exit 1; }
 
@@ -18,60 +17,36 @@ app_path() {
 [ -n "$(app_path com.google.Chrome)" ] ||
   die "Google Chrome is required — the tab reuse is Chrome-specific."
 
-FINICKY="$(app_path se.johnste.finicky || true)"
-if [ -z "$FINICKY" ]; then
-  command -v brew >/dev/null 2>&1 ||
-    die "Finicky is not installed, and neither is Homebrew. Install Finicky
-from https://github.com/johnste/finicky/releases (4.x), then re-run this."
-  echo "Installing Finicky..."
-  brew install --cask finicky
-  FINICKY="$(app_path se.johnste.finicky || true)"
-  [ -n "$FINICKY" ] || die "Finicky install did not complete. Aborting before
-touching your config."
-fi
-
-# A v3 config fails *silently* under a v3 Finicky — no error, every URL just
-# falls through. Refuse rather than hand the user that mystery.
-VERSION="$(defaults read "$FINICKY/Contents/Info.plist" \
-  CFBundleShortVersionString 2>/dev/null || echo 0)"
-case "$VERSION" in
-  4.*) ;;
-  *) die "This config needs Finicky 4.x, found $VERSION at $FINICKY.
-Upgrade with:  brew upgrade --cask finicky" ;;
-esac
-
-# Finicky also honours ~/.finicky.js, and prefers it. Installing to
-# ~/.config/finicky/finicky.js while that exists is a silent no-op.
-[ -e "$HOME/.finicky.js" ] && die "You have a config at ~/.finicky.js, which
-Finicky reads instead of the one this installs. Move it aside and re-run."
-
-mkdir -p "$CONFIG_DIR"
-if [ -e "$CONFIG" ] && ! cmp -s "$CONFIG" "$HERE/finicky.js"; then
-  # Guarded: without the -e test a second run backs up the config this script
-  # already installed, destroying the real backup and any hope of uninstalling
-  # cleanly.
-  if [ -e "$BACKUP" ]; then
-    echo "Leaving the existing backup at $BACKUP untouched."
-  else
-    cp "$CONFIG" "$BACKUP"
-    echo "Your existing config was backed up to $BACKUP"
-  fi
-fi
-cp "$HERE/finicky.js" "$CONFIG"
-
 "$HERE/install-chrome-tab-focus.sh"
 
-# Finicky does not hot-reload. Stop it rather than restarting it: an explicit
-# launch shows its window, but a LaunchServices launch to handle a URL doesn't.
-pkill -x Finicky || true
+# Make the applet the handler for web links and local pages. macOS asks the
+# user to confirm the http change ("Do you want to change your default web
+# browser?") — that dialog is the only way a script may set it. The .html
+# types change without asking.
+osascript - "$BUNDLE_ID" <<'APPLESCRIPT'
+use framework "AppKit"
+use framework "UniformTypeIdentifiers"
+use scripting additions
+on run argv
+	set ws to current application's NSWorkspace's sharedWorkspace()
+	set appURL to ws's URLForApplicationWithBundleIdentifier:(item 1 of argv)
+	ws's setDefaultApplicationAtURL:appURL toOpenURLsWithScheme:"http" completionHandler:(missing value)
+	repeat with uti in {"public.html", "public.xhtml"}
+		set t to (current application's UTType's typeWithIdentifier:(contents of uti))
+		ws's setDefaultApplicationAtURL:appURL toOpenContentType:t completionHandler:(missing value)
+	end repeat
+	-- The calls are asynchronous; give them a moment before this process exits.
+	delay 1
+end run
+APPLESCRIPT
 
-cat <<'EOF'
+cat <<'TEXT'
 
 Installed. Two things left, both one-time and both interactive:
 
-  1. Set Finicky as the default browser:
-     System Settings > Desktop & Dock > Default web browser > Finicky
-     (If Finicky isn't listed, run `open -a Finicky` once, then look again.)
+  1. macOS asks whether to change your default web browser to
+     ChromeTabFocus — choose it. If the dialog didn't appear:
+     System Settings > Desktop & Dock > Default web browser > ChromeTabFocus
 
   2. Click any link. macOS will ask to let ChromeTabFocus control Google
      Chrome — approve it, or the applet silently does nothing.
@@ -79,4 +54,14 @@ Installed. Two things left, both one-time and both interactive:
 Then check it worked:
 
   ./verify.sh
-EOF
+TEXT
+
+if [ -n "$(app_path se.johnste.finicky)" ]; then
+  cat <<'TEXT'
+
+Finicky is no longer needed. Once ./verify.sh passes:
+
+  brew uninstall --cask finicky
+  rm ~/.config/finicky/finicky.js   # or restore finicky.js.bak if you had one
+TEXT
+fi

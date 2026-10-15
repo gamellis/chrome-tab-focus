@@ -24,3 +24,8 @@ _Avoid_: normalized URL, canonical URL
 **Matching tab**:
 A tab in User Chrome whose URL has the same Match key as the URL being opened.
 The frontmost window's tabs win.
+
+**Carve-out**:
+A rule that sends a URL to a desktop app instead of a Chrome tab, such as
+Linear issue links going to the Linear app.
+_Avoid_: handler, route, exception

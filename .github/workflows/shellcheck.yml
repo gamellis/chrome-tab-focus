@@ -9,9 +9,10 @@ jobs:
       - uses: actions/checkout@v4
       - run: shellcheck --shell=sh ./*.sh
 
-  # Tab focus through a fake Chrome adapter: needs osascript, not Chrome.
+  # Tab focus and carve-outs: need osascript, not Chrome.
   test:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - run: ./test-tab-focus.sh
+      - run: ./test-carve-outs.sh
