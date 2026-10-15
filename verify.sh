@@ -78,6 +78,15 @@ if [ -d "$APP" ]; then
   # script the document event goes unanswered and times out, which looks exactly
   # like the click doing nothing. osacompile names the executable `droplet`
   # rather than `applet` when such a handler is present.
+  # The applet loads Tab focus and its Chrome adapter at first use. Without
+  # them every URL errors inside a background agent, which shows nothing.
+  if [ -f "$APP/Contents/Resources/tab-focus.scpt" ] &&
+     [ -f "$APP/Contents/Resources/chrome-tabs-appleevents.scpt" ]; then
+    ok "applet has Tab focus and its Chrome adapter"
+  else
+    bad "applet is missing its compiled scripts" "$REBUILD"
+  fi
+
   if [ "$(plist_at CFBundleExecutable raw)" = "droplet" ]; then
     ok "applet accepts document events"
   else

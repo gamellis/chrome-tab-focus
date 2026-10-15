@@ -62,6 +62,13 @@ handler. Given a URL it scans every Chrome window for a tab already showing it
 otherwise opens a new tab in the front window — or a new window, if Chrome has
 none open.
 
+Inside, the applet is three scripts. `tab-focus.applescript` decides which tab
+matches and whether to focus or open; it reaches Chrome only through an
+adapter with three calls (`findTab`, `focusTab`, `openTab`).
+`chrome-tabs-appleevents.applescript` is that adapter over Apple events, and
+`test-tab-focus.sh` swaps in a fake one. A different way of reaching Chrome —
+an extension over native messaging, say — is a new adapter, not a rewrite.
+
 It addresses Chrome by process, not by name. Test runners (Selenium,
 Puppeteer, etc.) launch headless Chrome from the same `.app`, and while one is
 running `tell application "Google Chrome"` can resolve to it — every link then
@@ -84,6 +91,12 @@ Finicky's `keepRunning` does the same job on its side.
 Both figures are wall-clock from `open <url>` until Chrome's active tab reports
 the target URL, on one machine with ~6 tabs open. Treat them as "the difference
 was obvious", not as a benchmark.
+
+`./bench.sh` is the benchmark: it times focusing an existing tab via Finicky
+and direct to the applet, with your windows as they are and again with 50
+filler tabs in front. On the machine above, the Finicky hop costs ~150ms and
+50 extra tabs cost ~140ms in the applet. Run it before and after any change to
+the applet; numbers drift between sessions, so compare runs made back to back.
 
 ## Limitations
 
@@ -125,7 +138,7 @@ window is the flash people mistake for a slow route. Launched by LaunchServices
 to handle a URL, it never shows the window at all, so the next link you click
 brings it back silently.
 
-Editing `chrome-tab-focus.applescript` is different: re-run
+Editing any `.applescript` file is different: re-run
 `./install-chrome-tab-focus.sh`, or the old compiled applet keeps handling URLs
 and your change appears to do nothing.
 
@@ -203,8 +216,12 @@ Kept so they don't get re-attempted:
 | `install.sh` / `uninstall.sh`   | Everything, both directions                      |
 | `verify.sh`                     | Diagnose a silent failure                        |
 | `finicky.js`                    | Copied to `~/.config/finicky/finicky.js`         |
-| `chrome-tab-focus.applescript`  | Source for the applet                            |
+| `chrome-tab-focus.applescript`  | The applet's entry points: URLs and files in     |
+| `tab-focus.applescript`         | Tab focus: which tab matches a URL, focus or open |
+| `chrome-tabs-appleevents.applescript` | The Chrome adapter: reads and drives Chrome over Apple events |
 | `install-chrome-tab-focus.sh`   | Builds and registers the applet only; also the edit-test loop |
+| `test-tab-focus.sh`             | Tab focus against a fake Chrome; no Chrome needed |
+| `bench.sh`                      | Times a click that focuses an existing tab       |
 
 The applet is built rather than committed: `osacompile` produces the `.app` in
 `~/Applications`, then the installer patches its bundle id, URL types,
