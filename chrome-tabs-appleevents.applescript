@@ -43,7 +43,7 @@ on focusTab(tabRef)
 	try
 		w's setIndex:1
 	end try
-	chrome's |activate|()
+	my activateUserChrome()
 end focusTab
 
 -- Elements are built from the base SBObject and the sdef's four-char codes
@@ -80,15 +80,32 @@ end openTab
 -- to do nothing. Headless and automation instances never have a regular
 -- activation policy, so that is what tells them apart.
 on userChrome()
+	set a to my userChromeProcess()
+	if a is missing value then return missing value
+	return current application's SBApplication's ¬
+		applicationWithProcessIdentifier:(a's processIdentifier())
+end userChrome
+
+on userChromeProcess()
 	set apps to current application's NSRunningApplication's ¬
 		runningApplicationsWithBundleIdentifier:"com.google.Chrome"
 	repeat with a in (apps as list)
-		if (a's activationPolicy()) is (current application's NSApplicationActivationPolicyRegular) then ¬
-			return current application's SBApplication's ¬
-				applicationWithProcessIdentifier:(a's processIdentifier())
+		if (a's activationPolicy()) is (current application's NSApplicationActivationPolicyRegular) then return a
 	end repeat
 	return missing value
-end userChrome
+end userChromeProcess
+
+-- Bring the user's Chrome forward through NSRunningApplication, not
+-- SBApplication's activate. The latter only asks Chrome to activate itself,
+-- and under macOS's cooperative activation Chrome is refused unless it is
+-- already the active app: the tab gets selected but its window stays behind
+-- whatever you clicked from. openTab gets away with it because Chrome raises
+-- itself when it gains a tab.
+on activateUserChrome()
+	set a to my userChromeProcess()
+	if a is missing value then return
+	a's activateWithOptions:0
+end activateUserChrome
 
 -- Chrome isn't running, or only a headless instance is. Launch a new instance
 -- with the URL rather than `open location`, which LaunchServices may hand to
